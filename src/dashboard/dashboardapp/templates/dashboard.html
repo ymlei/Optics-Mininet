@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+<title>Optics-Mininet Dashboard</title>
+</head>
+<style>
+  html * {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .collapsible {
+    background-color: #1E325C;
+    color: white;
+    cursor: pointer;
+    padding: 2px;
+    padding-left: 18px;
+    padding-right: 18px;
+    width: 100%;
+    border: solid 1px black;
+    border-bottom: 0px;
+    text-align: left;
+    outline: none;
+    font-size: 12px;
+  }
+  
+  .active, .collapsible:hover {
+    background-color: #13213E;
+  }
+  
+  .content {
+    padding: 0 18px;
+    max-height: 0;
+    overflow: hidden;
+    background-color: #f1f1f1;
+  }
+
+  .sidebar {
+    height: 100%;
+    width: 9%;
+    float: left;
+    background-color: #1E325C;
+  }
+
+  .sidenav {
+    height:100%;
+    width:160px;
+    position: fixed;
+    z-index:1;
+    top:0;
+    left:0;
+    background-color: #1E325C;
+    overflow-x: :hidden;
+    overflow-y: scroll;
+    padding-left: 10px;
+    padding-top: 10px;
+    color: white;
+  }
+
+  .sidenav a:hover{
+    color:#f1f1f1;
+  }	
+
+  .main{
+    margin-left:160px;
+    padding: 0px 10px;
+  }
+
+  .monospace {
+    font-family: monospace;
+  }
+</style>
+<body>
+
+	<div class="sidenav">
+    <div class="image-container" style="text-align:center; margin-right: 10px;">
+    <img src="{% static 'logo.png' %}" style="max-height:50%; max-width:50%;">
+    <h2 style="margin-top:3px;">Optics-Mininet Dashboard</h2>
+    </div>
+    <div class="epochmenu">
+    {% for epoch in epochs %}
+    {% if current_epoch.id == epoch.id %}
+      <a href='/render/?epoch_id={{ epoch.id }}' style="color:#FFFFFF;">{{epoch.display_name}}</a>
+      <br>
+    {% else %}
+      <a href='/render/?epoch_id={{ epoch.id }}' style="color:#CACDD6;">{{epoch.display_name}}</a>
+      <br>
+    {% endif %}
+    {% endfor %}
+    <br>
+    </div>
+	</div>
+
+  <div class="main">
+    {% if epochs|length == 0 %}
+    <h2 style="text-align: center;">Welcome to the Optics-Mininet dashboard!</h2>
+    <p style="text-align: center;">Run an Optics-Mininet network instance to start seeing visualizations on this page.</p>
+    <p style="text-align: center;">Remember to set <span class="monospace">use_webserver</span> to <span class="monospace">True</span> when creating your network object.</p>
+    {% else %}
+    <img src="{{ topo_img_url }}" alt="Topology Image" width="100%">
+    {% for metric in metrics %}
+    <div class="metric_block" style="margin-bottom: 10px; border-bottom: 1px solid black;">
+    {% for device in devices reversed %}
+      <button class="collapsible">{{device}} {{metric}}</button>
+      <div class="content">
+        <br>
+        <canvas id="{{device}}-{{metric}}" style="padding-bottom:20px; width:100%; height: 300px;"></canvas>
+      </div>
+    {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="text/javascript" src="chartjs-plugin-colorschemes.js"></script>
+<script>
+  var readings = {{ readings|safe }};
+  var port_readings = {{ port_readings|safe }};
+
+  var coll = document.getElementsByClassName("collapsible");
+  var i;
+  for (i = 0; i < coll.length; i++) {
+    var button_text = coll[i].textContent || coll[i].innerText;
+    if (button_text.includes('total')) {
+      coll[i].nextElementSibling.style.maxHeight = coll[i].nextElementSibling.scrollHeight + "px";
+      coll[i].style.fontSize = '15px';
+      coll[i].style.paddingTop = '5px';
+      coll[i].style.paddingBottom = '5px';
+      coll[i].style.fontWeight = 'bold';
+      coll[i].classList.toggle("active");
+    }
+    coll[i].addEventListener("click", function() {
+      this.classList.toggle("active");
+      var content = this.nextElementSibling;
+      if (content.style.maxHeight){
+        content.style.maxHeight = null;
+      } else {
+        content.style.maxHeight = content.scrollHeight + "px";
+      } 
+    });
+  }
+
+  var sub_line_colors = ['#FBB4AE', '#B3CDE3', '#CCEBC5', '#DECBE4', '#FED9A6', '#E5D8BD', '#FDDAEC', '#CCCCCC', '#FFFECC']
+
+  {% for metric in metrics %}
+  {% for device in devices reversed %}
+  var {{device}}_{{metric}}_ctx = document.getElementById('{{device}}-{{metric}}').getContext('2d');
+  var {{device}}_{{metric}}_data = {
+    labels: readings.{{device}}.labels,
+    datasets: [{
+      {% if metric == "num_queued_packets" %}
+      label: '{{device}} {{metric}}',
+      {% else %}
+      label: '{{metric}}',
+      {% endif %}
+      backgroundColor: "#1E325C",
+      borderColor: "#1E325C",
+      pointBackgroundColor: "#1E325C",
+      pointBorderColor: "#fff",
+      pointHoverBackgroundColor: "#fff",
+      pointHoverBorderColor: "#1E325C",
+      data: readings.{{device}}.{{metric}},
+      pointBorderWidth: 1,
+      borderWidth: 2,
+    },
+    {% if metric == "num_queued_packets" and device == "total" %}
+    {% for subdevice in devices %}
+    {% if subdevice != "total" %}
+    {
+      label: "{{subdevice}}",
+      data: readings.{{subdevice}}.{{metric}},
+      borderWidth: 1,
+      borderColor: sub_line_colors[{{forloop.counter0}} % sub_line_colors.length],
+      backgroundColor: sub_line_colors[{{forloop.counter0}} % sub_line_colors.length],
+      pointBackgroundColor: sub_line_colors[{{forloop.counter0}} % sub_line_colors.length],
+      pointBorderColor: "#fff",
+      pointHoverBackgroundColor: "#fff",
+    },
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    ]
+  }
+
+  {% if device != "total" and metric == "num_queued_packets" %}
+  var keys = Object.keys(port_readings.{{device}});
+  for (k in keys) {
+    console.log(port_readings.{{device}}[keys[k]]);
+    {{device}}_{{metric}}_data.datasets.push({
+      label: '{{device}} port' + keys[k],
+      data: port_readings.{{device}}[keys[k]],
+      borderWidth: 1,
+      borderColor: sub_line_colors[k % sub_line_colors.length],
+      backgroundColor: sub_line_colors[k % sub_line_colors.length],
+      pointBackgroundColor: sub_line_colors[k % sub_line_colors.length],
+      pointBorderColor: "#fff",
+      pointHoverBackgroundColor: "#fff",
+    })
+  }
+  {%endif%}
+
+  var {{device}}_{{metric}}_options = {
+    responsive: true,
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Timestep (s)'
+        }
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: '{{metric}}'
+        }
+      }
+    },
+    plugins: {
+      legend: {
+          display: true
+      }
+    },
+    elements: {
+      point: {
+        radius: 2
+      }
+    }
+  };
+  var {{device}}_{{metric}}_chart = new Chart({{device}}_{{metric}}_ctx, {
+    type: 'line',
+    data: {{device}}_{{metric}}_data,
+    options: {{device}}_{{metric}}_options
+  });
+  {% endfor %}
+  {% endfor %}
+
+  var showing_epoch = {{current_epoch.id}};
+
+  const socket = new WebSocket('ws://' + window.location.host + '/ws/readings/');
+  socket.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    if (data.epoch == showing_epoch) {
+      var new_label = Math.max.apply(0, window[data.device_name + "_num_queued_packets_chart"].data.labels) + 1;
+      {% for metric in metrics %}
+      if (!window[data.device_name + "_{{metric}}_chart"].data.labels.includes(new_label)) {
+        window[data.device_name + "_{{metric}}_chart"].data.labels.push(new_label);
+      }
+      window[data.device_name + "_{{metric}}_chart"].data.datasets[0].data.push(data.{{metric}});
+      window[data.device_name + "_{{metric}}_chart"].update();
+      {% endfor %}
+    }
+  };
+  socket.onclose = function(event) {
+      console.error('WebSocket closed unexpectedly');
+  };
+</script>
+</body>
+</html>
