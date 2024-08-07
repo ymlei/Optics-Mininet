@@ -12,8 +12,8 @@ This repository comes pre-configured with a Visual Studio Code Development Conta
 
 We also provide a Dockerfile as a quick and easy way to get Optics-Mininet up and running if you prefer command line. Simply run the following:
 ```
-docker build -t Optics-Mininet .
-docker run --privileged -i -t Optics-Mininet /bin/bash
+docker build -t optics-mininet .
+docker run --privileged -i -t optics-mininet /bin/bash
 ```
 
 ### Building Optics-Mininet from scratch
