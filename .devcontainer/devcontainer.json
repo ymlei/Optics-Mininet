@@ -1,0 +1,20 @@
+{
+	"name": "openoptics-mininet",
+        "build": { "dockerfile": "../Dockerfile" },
+        "runArgs": [
+          "--platform=linux/amd64",
+          "--privileged"
+        ],
+	"workspaceFolder": "/openoptics-mininet",
+	"customizations": {
+    "vscode": {
+      //"settings": {
+      //  "extensions.verifySignature": false
+      //},
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python"
+	    ]
+    }
+  }
+}
